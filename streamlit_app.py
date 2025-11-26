@@ -66,16 +66,15 @@ elif st.session_state.page == "new_topic":
         st.session_state.new_cards = []
 
     # Neue Karte eingeben
-    front = st.text_input("Vorderseite", key="front_input")
-    back = st.text_input("Rückseite", key="back_input")
+front = st.text_input("Vorderseite", key="front_input")
+back = st.text_input("Rückseite", key="back_input")
 
-    if st.button("➕ Karte hinzufügen"):
-        if front and back:
-            st.session_state.new_cards.append({"front": front, "back": back})
-            st.session_state.front_input = ""
-            st.session_state.back_input = ""
-        else:
-            st.warning("Bitte beide Seiten ausfüllen.")
+if st.button("➕ Karte hinzufügen"):
+    if front and back:
+        st.session_state.new_cards.append({"front": front, "back": back})
+        st.experimental_rerun()
+    else:
+        st.warning("Bitte beide Seiten ausfüllen.")
 
     # Kartenliste anzeigen
     for c in st.session_state.new_cards:
