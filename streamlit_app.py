@@ -72,7 +72,7 @@ back = st.text_input("Rückseite", key="back_input")
 if st.button("➕ Karte hinzufügen"):
     if front and back:
         st.session_state.new_cards.append({"front": front, "back": back})
-        st.experimental_rerun()
+        st.rerun()
     else:
         st.warning("Bitte beide Seiten ausfüllen.")
 
