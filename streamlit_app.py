@@ -1,151 +1,98 @@
 import streamlit as st
-from random import shuffle
 
-st.set_page_config(page_title="Karteikarten", page_icon="📚", layout="centered")
+st.set_page_config(page_title="Karteikarten App", layout="centered")
 
-# --- INITIALISIERUNG ---
-if "topics" not in st.session_state:
-    st.session_state.topics = {}  # {topic_name: {"color": "#fff", "cards": [{"front":..., "back":...}]}}
-if "page" not in st.session_state:
-    st.session_state.page = "home"
-if "current_topic" not in st.session_state:
-    st.session_state.current_topic = None
-if "learn_queue" not in st.session_state:
-    st.session_state.learn_queue = []
-if "show_back" not in st.session_state:
-    st.session_state.show_back = False
-
-
-# --- SEITENWECHSEL FUNKTION ---
-def go(page, topic=None):
-    st.session_state.page = page
-    if topic:
-        st.session_state.current_topic = topic
-    st.session_state.show_back = False
+# ---- INITIAL STATE ----
+if "cards" not in st.session_state:
+    st.session_state.cards = []  # Liste aus {"front":..., "back":...}
+if "queue" not in st.session_state:
+    st.session_state.queue = []
+if "current" not in st.session_state:
+    st.session_state.current = None
+if "flipped" not in st.session_state:
+    st.session_state.flipped = False
+if "repeat" not in st.session_state:
+    st.session_state.repeat = []  # Karten, die nochmal kommen
 
 
-# -------------------------
-#       HOME / THEMEN
-# -------------------------
-if st.session_state.page == "home":
-
-    st.title("📚 Karteikarten")
-
-    st.header("Deine Themen:")
-
-    if len(st.session_state.topics) == 0:
-        st.info("Noch keine Themen vorhanden.")
-
-    for topic, data in st.session_state.topics.items():
-        color = data["color"]
-        if st.button(topic, key=topic, help="Thema öffnen"):
-            # Lernqueue vorbereiten
-            cards = data["cards"].copy()
-            shuffle(cards)
-            st.session_state.learn_queue = cards
-            go("learn", topic)
-
-    st.write("---")
-    st.subheader("➕ Neues Thema erstellen")
-    if st.button("➕ Thema hinzufügen"):
-        go("new_topic")
-
-
-# -------------------------
-#      NEUES THEMA
-# -------------------------
-elif st.session_state.page == "new_topic":
-
-    st.title("➕ Neues Thema erstellen")
-
-    name = st.text_input("Name des Themas")
-    color = st.color_picker("Farbe der Karten", "#3b82f6")
-
-    st.subheader("Karten hinzufügen")
-    if "new_cards" not in st.session_state:
-        st.session_state.new_cards = []
-
-    # Neue Karte eingeben
-front = st.text_input("Vorderseite", key="front_input")
-back = st.text_input("Rückseite", key="back_input")
-
-if st.button("➕ Karte hinzufügen"):
+# ---- ADD CARD FUNCTION ----
+def add_card():
+    front = st.session_state.front_text.strip()
+    back = st.session_state.back_text.strip()
     if front and back:
-        st.session_state.new_cards.append({"front": front, "back": back})
-        st.rerun()
+        st.session_state.cards.append({"front": front, "back": back})
+        st.session_state.front_text = ""
+        st.session_state.back_text = ""
+        st.success("Karte hinzugefügt!")
+
+
+# ---- START TRAINING ----
+def start_training():
+    if len(st.session_state.cards) == 0:
+        st.warning("Keine Karten vorhanden!")
+        return
+    st.session_state.queue = st.session_state.cards.copy()
+    st.session_state.repeat = []
+    st.session_state.current = st.session_state.queue.pop(0)
+    st.session_state.flipped = False
+
+
+# ---- NEXT CARD ----
+def next_card(known: bool):
+    if not known:
+        st.session_state.repeat.append(st.session_state.current)
+
+    if len(st.session_state.queue) > 0:
+        st.session_state.current = st.session_state.queue.pop(0)
+        st.session_state.flipped = False
     else:
-        st.warning("Bitte beide Seiten ausfüllen.")
-
-    # Kartenliste anzeigen
-    for c in st.session_state.new_cards:
-        st.write(f"• **{c['front']}** → {c['back']}")
-
-    st.write("---")
-
-    if st.button("💾 Speichern"):
-        if name == "":
-            st.warning("Bitte einen Namen eingeben.")
+        # Hauptstapel vorbei → Wiederholungen anhängen
+        if len(st.session_state.repeat) > 0:
+            st.session_state.queue = st.session_state.repeat.copy()
+            st.session_state.repeat = []
+            st.session_state.current = st.session_state.queue.pop(0)
+            st.session_state.flipped = False
         else:
-            st.session_state.topics[name] = {
-                "color": color,
-                "cards": st.session_state.new_cards.copy()
-            }
-            st.session_state.new_cards = []
-            go("home")
-
-    if st.button("⬅️ Abbrechen"):
-        st.session_state.new_cards = []
-        go("home")
+            st.session_state.current = None
 
 
-# -------------------------
-#        LERNMODUS
-# -------------------------
-elif st.session_state.page == "learn":
+# ---------------------------------------------
+#                 UI
+# ---------------------------------------------
+st.title("📚 Karteikarten App")
 
-    topic = st.session_state.current_topic
-    data = st.session_state.topics[topic]
-    color = data["color"]
+st.header("Karten erstellen")
+with st.form("create_form"):
+    st.text_input("Vorderseite", key="front_text")
+    st.text_input("Rückseite", key="back_text")
+    submitted = st.form_submit_button("Karte hinzufügen")
+    if submitted:
+        add_card()
 
-    st.title(f"📘 Lernen: {topic}")
+st.write("---")
 
-    if len(st.session_state.learn_queue) == 0:
-        st.success("🎉 Alle Karten gelernt!")
-        if st.button("⬅️ Zurück zum Menü"):
-            go("home")
-        st.stop()
+st.header("Training starten")
+if st.button("▶️ Start"):
+    start_training()
 
-    card = st.session_state.learn_queue[0]
+# TRAINING VIEW
+if st.session_state.current:
+    st.subheader("Aktuelle Karte")
 
-    # Karte darstellen
-    st.markdown(
-        f"""
-        <div style='padding:20px; background:{color}; border-radius:10px; text-align:center; font-size:24px;'>
-            {card['back'] if st.session_state.show_back else card['front']}
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-    # Buttons
-    st.write("")
-    if not st.session_state.show_back:
-        if st.button("🔄 Umdrehen"):
-            st.session_state.show_back = True
+    if not st.session_state.flipped:
+        st.info(st.session_state.current["front"])
+        if st.button("Umdrehen"):
+            st.session_state.flipped = True
     else:
+        st.success(st.session_state.current["back"])
         col1, col2 = st.columns(2)
-
         with col1:
-            if st.button("❌ Nicht gewusst"):
-                # Karte ans Ende setzen
-                st.session_state.learn_queue.append(st.session_state.learn_queue.pop(0))
-                st.session_state.show_back = False
-
+            if st.button("✓ Gewusst"):
+                next_card(True)
         with col2:
-            if st.button("✔️ Gewusst"):
-                st.session_state.learn_queue.pop(0)
-                st.session_state.show_back = False
+            if st.button("✕ Nicht gewusst"):
+                next_card(False)
 
-    st.write("---")
-    if st.button("⬅️ Zurück"):
-        go("home")
+# Ende der Session
+elif st.session_state.queue == [] and len(st.session_state.cards) > 0:
+    st.success("🎉 Training abgeschlossen! Alle Karten wurden gelernt.")
