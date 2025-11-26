@@ -1,8 +1,30 @@
 import streamlit as st
+import json
+import os
 
 st.set_page_config(page_title="Karteikarten App", layout="centered")
 
-# ---- INITIAL STATE ----
+SAVE_FILE = "karten.json"
+
+
+# --------------------- SAVE / LOAD ---------------------
+def save_cards():
+    with open(SAVE_FILE, "w", encoding="utf-8") as f:
+        json.dump(st.session_state.cards, f, ensure_ascii=False, indent=2)
+    st.success("💾 Karten gespeichert!")
+
+
+def load_cards():
+    if not os.path.exists(SAVE_FILE):
+        st.warning("❗ Noch keine Datei zum Laden gefunden.")
+        return
+
+    with open(SAVE_FILE, "r", encoding="utf-8") as f:
+        st.session_state.cards = json.load(f)
+    st.success("📥 Karten geladen!")
+
+
+# --------------------- INITIAL STATE ---------------------
 if "cards" not in st.session_state:
     st.session_state.cards = []
 if "queue" not in st.session_state:
@@ -18,7 +40,8 @@ if "front_text" not in st.session_state:
 if "back_text" not in st.session_state:
     st.session_state.back_text = ""
 
-# ---- ADD CARD ----
+
+# --------------------- ADD CARD ---------------------
 def add_card():
     front = st.session_state.front_text.strip()
     back = st.session_state.back_text.strip()
@@ -26,12 +49,11 @@ def add_card():
     if front and back:
         st.session_state.cards.append({"front": front, "back": back})
 
-    # Felder sicher zurücksetzen
     st.session_state.front_text = ""
     st.session_state.back_text = ""
 
 
-# ---- START TRAINING ----
+# --------------------- TRAINING ---------------------
 def start_training():
     if len(st.session_state.cards) == 0:
         st.warning("Keine Karten vorhanden!")
@@ -43,7 +65,6 @@ def start_training():
     st.session_state.flipped = False
 
 
-# ---- NEXT CARD ----
 def next_card(known: bool):
     if not known:
         st.session_state.repeat.append(st.session_state.current)
@@ -61,10 +82,20 @@ def next_card(known: bool):
     st.session_state.flipped = False
 
 
-# ---------------------------------------------
-#                 UI
-# ---------------------------------------------
-st.title("📚 Karteikarten App")
+# --------------------- UI START ---------------------
+st.title("📚 Karteikarten App mit Speicherfunktion")
+
+
+# --------------------- LOAD & SAVE BUTTONS ---------------------
+st.subheader("💾 Speichern / 📥 Laden")
+
+colA, colB = st.columns(2)
+with colA:
+    if st.button("📥 Karten laden"):
+        load_cards()
+with colB:
+    if st.button("💾 Karten speichern"):
+        save_cards()
 
 
 # --------------------- CREATE CARDS ---------------------
@@ -73,9 +104,11 @@ st.header("Karten erstellen")
 st.text_input("Vorderseite", key="front_text")
 st.text_input("Rückseite", key="back_text")
 
-if st.button("Karte hinzufügen"):
+if st.button("➕ Karte hinzufügen"):
     add_card()
     st.success("Karte hinzugefügt!")
+
+st.write(f"🗂️ Anzahl Karten: **{len(st.session_state.cards)}**")
 
 
 # --------------------- START TRAINING ---------------------
@@ -92,7 +125,7 @@ if st.session_state.current:
 
     if not st.session_state.flipped:
         st.info(st.session_state.current["front"])
-        if st.button("Umdrehen"):
+        if st.button("🔄 Umdrehen"):
             st.session_state.flipped = True
     else:
         st.success(st.session_state.current["back"])
